@@ -25,6 +25,37 @@ var UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  firstName: {
+    type: String,
+    required: true
+  },
+  lastName: {
+    type: String,
+    required: true
+  },
+  phone: {
+    type: String,
+    required: true
+  },
+  schoolCity: {
+    type: String,
+    required: true
+  },
+  schoolLevel: {
+    type: String,
+    required: true
+  },
+  schoolName: {
+    type: String,
+    required: true
+  },
+  schoolType: {
+    type: String,
+    required: true
+  },
+  nickName: {
+      type: String
+  },
   tokens: [{
     access: {
       type: String,
@@ -41,7 +72,18 @@ UserSchema.methods.toJSON = function () {
   var user = this;
   var userObject = user.toObject();
 
-  return _.pick(userObject, ['_id', 'email']);
+  return _.pick(userObject, ['_id',
+                             'email',
+                             'role',
+                             'phone',
+                             'firstName',
+                             'lastName',
+                             'schoolName',
+                             'schoolCity',
+                             'schoolLevel',
+                             'schoolType',
+                             'nickName'
+                           ]);
 };
 
 UserSchema.methods.generateAuthToken = function () {
