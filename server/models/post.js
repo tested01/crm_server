@@ -3,6 +3,7 @@ require('./tag.js');
 require('./resource.js');
 
 var Post = mongoose.model('Post', {
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   detail: {
     title: {
       type: String,

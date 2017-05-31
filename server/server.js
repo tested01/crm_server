@@ -482,16 +482,14 @@ app.delete('/users/me/token', authenticate, (req, res) => {
 
 
 // API ---- Post
-app.post('/posts', (req, res) => {
+app.post('/posts', authenticate, (req, res) => {
   var body = _.pick(req.body, [
     'detail',
     'mission'
   ]);
-  var post = new Post(body);
-
-  post.save().then((doc) => {
-    return res.send(doc);
-  }).catch((e) => {
+  body.author = req.user;
+  const post = new Post(body);
+  post.save().then((doc) => res.send(doc)).catch((e) => {
     res.status(400).send(e);
   })
 });
