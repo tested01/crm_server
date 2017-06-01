@@ -85,6 +85,7 @@ if (req.user.role === 'student') {
           Mission.find()
                 .where('target')
                 .in(stdsCourses)
+                .populate('_creator')
                 .exec((err, missions) => {
                   res.send({ missions });
                 });
@@ -112,6 +113,7 @@ app.get('/missions/courses/:courseId', authenticate, (req, res) => {
       Mission.find()
             .where('target')
             .in([courseId])
+            .populate('_creator')
             .exec((err, missions) => {
               //TODO: check if the student can access the mission(e.g. in the course)
               res.send({ missions });
@@ -126,8 +128,9 @@ app.get('/missions/:id', authenticate, (req, res) => {
     return res.status(404).send();
   }
 
-
-  Mission.findOne({_id: id, _creator: req.user._id}).then((mission) => {
+  Mission.findOne({_id: id, _creator: req.user._id})
+  .populate('_creator')
+  .then((mission) => {
     if (!mission) {
       return res.status(404).send();
     }
@@ -177,7 +180,8 @@ app.patch('/missions/:id', authenticate, (req, res) => {
     {_id: id, _creator: req.user._id },
     { $set: revisedMission },
     { new: true }
-  ).then((mission) => {
+  ).populate('_creator')
+  .then((mission) => {
     if (!mission) {
       return res.status(404).send();
     }
@@ -492,6 +496,29 @@ app.post('/posts', authenticate, (req, res) => {
   post.save().then((doc) => res.send(doc)).catch((e) => {
     res.status(400).send(e);
   })
+});
+
+
+app.get('/posts/missions/:mid', authenticate, (req, res) => {
+  const mid = new ObjectID(req.params.mid);
+
+  if (!ObjectID.isValid(mid)) {
+    return res.status(404).send();
+  }
+
+  Post.find({
+    mission: mid//,
+    //_creator: req.user._id //TODO: check if the requester is member of this course
+  }).populate('author')
+  .then((posts) => {
+    if (!posts) {
+      return res.status(404).send();
+    }
+    res.send({ posts })
+  }).catch((e) => {
+    res.status(400).send();
+  });
+
 });
 
 app.listen(port, () => {
