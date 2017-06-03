@@ -36,8 +36,7 @@ var Mission = mongoose.model('Mission', {
     required: true
   },
   students: {
-    type: [{type: mongoose.Schema.Types.ObjectId, ref: 'User'}],
-    notYet: [{type: mongoose.Schema.Types.ObjectId, ref: 'User'}]
+    submitted: [{type: mongoose.Schema.Types.ObjectId, ref: 'User'}]
   },
   createdDate: {
     type: Date,

@@ -493,6 +493,18 @@ app.post('/posts', authenticate, (req, res) => {
   ]);
   body.author = req.user;
   const post = new Post(body);
+  //TODO: update students.submitted of mission
+  let conditions = {
+    _id: req.body.mission
+  };
+  let userId = req.user._id ;
+  let update = {
+      $addToSet: { 'students.submitted' :  userId }
+  }
+  Mission.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      return res.status(200).send(doc);
+  });
+
   post.save().then((doc) => res.send(doc)).catch((e) => {
     res.status(400).send(e);
   })
@@ -505,7 +517,6 @@ app.get('/posts/missions/:mid', authenticate, (req, res) => {
   if (!ObjectID.isValid(mid)) {
     return res.status(404).send();
   }
-
   Post.find({
     mission: mid//,
     //_creator: req.user._id //TODO: check if the requester is member of this course
@@ -518,7 +529,44 @@ app.get('/posts/missions/:mid', authenticate, (req, res) => {
   }).catch((e) => {
     res.status(400).send();
   });
+});
 
+app.patch('/posts/like/:pid', authenticate, (req, res) => {
+  const pid = new ObjectID(req.params.pid);
+
+  if (!ObjectID.isValid(pid)) {
+    return res.status(404).send();
+  }
+  let conditions = {
+    _id: pid
+  };
+  let userId = req.user._id ;
+  let update = {
+      $addToSet: { 'likes.users' :  userId }
+  }
+
+  Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      return res.status(200).send(doc);
+  });
+});
+
+app.patch('/posts/unlike/:pid', authenticate, (req, res) => {
+  const pid = new ObjectID(req.params.pid);
+
+  if (!ObjectID.isValid(pid)) {
+    return res.status(404).send();
+  }
+  let conditions = {
+    _id: pid
+  };
+  let userId = req.user._id ;
+  let update = {
+      $pullAll: { 'likes.users' :  [userId] }
+  }
+
+  Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      return res.status(200).send(doc);
+  });
 });
 
 app.listen(port, () => {
