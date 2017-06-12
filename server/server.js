@@ -15,8 +15,15 @@ const app = express();
 const port = process.env.PORT;
 
 app.use(bodyParser.json());
+//app.use(multer({ dest: './uploads/' }));
 
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
+
+const upload = multer({
+  dest: path.join(__dirname, '../public/uploads/temp')
+});
 
 function genCode ( howMany, chars) {
     chars = chars
@@ -493,7 +500,7 @@ app.post('/posts', authenticate, (req, res) => {
   ]);
   body.author = req.user;
   const post = new Post(body);
-  //TODO: update students.submitted of mission
+  //update students.submitted of mission
   let conditions = {
     _id: req.body.mission
   };
@@ -502,7 +509,7 @@ app.post('/posts', authenticate, (req, res) => {
       $addToSet: { 'students.submitted' :  userId }
   }
   Mission.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
-      return res.status(200).send(doc);
+      //return res.status(200).send(doc);
   });
 
   post.save().then((doc) => res.send(doc)).catch((e) => {
@@ -510,6 +517,19 @@ app.post('/posts', authenticate, (req, res) => {
   })
 });
 
+app.get('/posts/me', authenticate, (req, res) => {
+  //req.user;
+  Post.findOne({
+    author: req.user._id//,
+  }).then((posts) => {
+    if (!posts) {
+      return res.status(404).send();
+    }
+    res.send({ posts })
+  }).catch((e) => {
+    res.status(400).send();
+  });
+});
 
 app.get('/posts/missions/:mid', authenticate, (req, res) => {
   const mid = new ObjectID(req.params.mid);
@@ -519,7 +539,9 @@ app.get('/posts/missions/:mid', authenticate, (req, res) => {
   }
   Post.find({
     mission: mid//,
-    //_creator: req.user._id //TODO: check if the requester is member of this course
+    //_creator: req.user._id
+    //TODO: check if the requester is member of this course
+    //TODO: upload images
   }).populate('author')
   .then((posts) => {
     if (!posts) {
@@ -568,6 +590,87 @@ app.patch('/posts/unlike/:pid', authenticate, (req, res) => {
       return res.status(200).send(doc);
   });
 });
+
+//多圖上傳
+app.post('/upload/photos', upload.array('article', 12), function (req, res, next){
+    //req.post_id 要傳一下 post_id
+    console.log(req, 'req');
+    req.files.forEach(
+      function (file) {
+          /** When using the "single"
+          data come in "req.file" regardless of the attribute "name". **/
+          var tmp_path = file.path;
+
+
+          /** The original name of the uploaded file
+              stored in the variable "originalname". **/
+          var target_path = 'uploads/temp/' + file.originalname;
+
+          /** A better way to copy the uploaded file. **/
+
+          var src = fs.createReadStream(tmp_path);
+          var dest = fs.createWriteStream(target_path);
+          src.pipe(dest);
+          src.on('end', function() {
+            //res.render('complete');
+            console.log('complete');
+          });
+          src.on('error', function(err) {
+            //res.render('error');
+            console.log('error', err);
+          });
+      }
+    );
+    /*
+    req.files.forEach(
+      function (file) {
+        console.log('文件類型：%s', file.mimetype);
+        console.log('原始文件名：%s', file.originalname);
+        console.log('文件大小：%s', file.size);
+        console.log('文件保存路徑：%s', file.path);
+      }
+    );*/
+    //res.send({ret_code: '0'});
+});
+
+//單圖上傳
+app.post('/upload/photo', upload.single('article'), function(req, res, next){
+    console.log(req);
+    /** When using the "single"
+    data come in "req.file" regardless of the attribute "name". **/
+    var tmp_path = req.file.path;
+
+    /** The original name of the uploaded file
+        stored in the variable "originalname". **/
+    var target_path = 'uploads/temp/' + req.file.originalname;
+
+    /** A better way to copy the uploaded file. **/
+
+    var src = fs.createReadStream(tmp_path);
+    var dest = fs.createWriteStream(target_path);
+    src.pipe(dest);
+    src.on('end', function() {
+      //res.render('complete');
+      console.log('complete');
+    });
+    src.on('error', function(err) {
+      //res.render('error');
+      console.log('error', err);
+    });
+
+    //req.post_id 要傳一下 post_id
+    /*
+    const file = req.file;
+    console.log(req, 'req......');
+    console.log('文件類型：%s', file.mimetype);
+    console.log('原始文件名：%s', file.originalname);
+    console.log('文件大小：%s', file.size);
+    console.log('文件保存路徑：%s', file.path);
+    */
+
+});
+
+//app.set('view engine', 'jade');
 
 app.listen(port, () => {
   console.log(`Started up at port ${port}`);
