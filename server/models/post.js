@@ -4,6 +4,7 @@ require('./resource.js');
 
 var Post = mongoose.model('Post', {
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  advisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   detail: {
     title: {
       type: String,

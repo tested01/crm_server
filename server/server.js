@@ -9,6 +9,7 @@ const { Course } = require('./models/course');
 const { Mission } = require('./models/mission');
 const { Post } = require('./models/post');
 const { User } = require('./models/user');
+const { Resource } = require('./models/resource');
 const { authenticate } = require('./middleware/authenticate');
 const multer = require('multer');
 const app = express();
@@ -24,6 +25,8 @@ const fs = require('fs');
 const upload = multer({
   dest: path.join(__dirname, '../public/uploads/temp')
 });
+
+app.use(express.static('public'));
 
 function genCode ( howMany, chars) {
     chars = chars
@@ -496,7 +499,8 @@ app.delete('/users/me/token', authenticate, (req, res) => {
 app.post('/posts', authenticate, (req, res) => {
   var body = _.pick(req.body, [
     'detail',
-    'mission'
+    'mission',
+    'advisor'
   ]);
   body.author = req.user;
   const post = new Post(body);
@@ -519,9 +523,12 @@ app.post('/posts', authenticate, (req, res) => {
 
 app.get('/posts/me', authenticate, (req, res) => {
   //req.user;
-  Post.findOne({
+  Post.find({
     author: req.user._id//,
-  }).then((posts) => {
+  }).populate('author')
+  .populate('detail.resources')
+  .populate('advisor')
+  .then((posts) => {
     if (!posts) {
       return res.status(404).send();
     }
@@ -543,6 +550,7 @@ app.get('/posts/missions/:mid', authenticate, (req, res) => {
     //TODO: check if the requester is member of this course
     //TODO: upload images
   }).populate('author')
+  .populate('detail.resources')
   .then((posts) => {
     if (!posts) {
       return res.status(404).send();
@@ -595,32 +603,86 @@ app.patch('/posts/unlike/:pid', authenticate, (req, res) => {
 app.post('/upload/photos', upload.array('article', 12), function (req, res, next){
     //req.post_id 要傳一下 post_id
     console.log(req, 'req');
+    console.log(req.body.post_id, 'post_id');
+    let resourceList = [];
+    const indexLength = req.files.length;
     req.files.forEach(
-      function (file) {
+      function (file, index) {
           /** When using the "single"
           data come in "req.file" regardless of the attribute "name". **/
-          var tmp_path = file.path;
-
-
+          let tmp_path = file.path;
           /** The original name of the uploaded file
               stored in the variable "originalname". **/
-          var target_path = 'uploads/temp/' + file.originalname;
+          const temp_dir = 'public/uploads/';
 
-          /** A better way to copy the uploaded file. **/
+              if (!fs.existsSync(temp_dir)){
+                  fs.mkdirSync(temp_dir);
+              }
+          const targetDir = 'public/uploads/'.concat(req.body.auth_id)
+          .concat('/').concat(req.body.post_id).concat('/');
+          const target_path = targetDir + file.originalname;
+          let uri = '/uploads/' + req.body.auth_id +
+                    '/' + req.body.post_id +
+                    '/' + file.originalname;
+          //TODO: add image to patch resource array of the post
+          // i.e. resourceList
+          const res ={
+            uri,
+            _creator: req.body.auth_id,
+            post: req.body.post_id,
+            index
+          };
 
-          var src = fs.createReadStream(tmp_path);
-          var dest = fs.createWriteStream(target_path);
-          src.pipe(dest);
-          src.on('end', function() {
-            //res.render('complete');
-            console.log('complete');
+          let resource = new Resource(res);
+          resource.save().then((doc) => resourceList.push(doc._id)).catch((e) => {
+            console.log('resource save error --- ', e);
           });
-          src.on('error', function(err) {
-            //res.render('error');
-            console.log('error', err);
+
+          const mkdirp = require('mkdirp');
+          mkdirp(targetDir, function (err) {
+              if (err){
+                console.error(err);
+              }
+              else{
+                          /** A better way to copy the uploaded file. **/
+
+                          let src = fs.createReadStream(tmp_path);
+                          let dest = fs.createWriteStream(target_path);
+                          src.pipe(dest);
+                          src.on('end', function(){
+                            //res.render('complete');
+                            if(index == indexLength-1){
+                              console.log(resourceList, 'resourceList');
+
+                              //TODO: patch post's resource
+                              let conditions = {
+                                _id: req.body.post_id
+                              };
+                              let updateContent = {
+                                'detail.resources': resourceList
+                              };
+                              let update = {
+                                  //$pullAll: { 'likes.users' :  [userId] }
+                                  $set: updateContent
+                              }
+
+                              Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+                                  console.log('updated images of the post', doc);
+                              });
+
+                            }
+                          });
+                          src.on('error', function(err) {
+                            //res.render('error');
+                            console.log('error', err);
+                          });
+              }
           });
       }
     );
+
+
+
     /*
     req.files.forEach(
       function (file) {
@@ -638,16 +700,16 @@ app.post('/upload/photo', upload.single('article'), function(req, res, next){
     console.log(req);
     /** When using the "single"
     data come in "req.file" regardless of the attribute "name". **/
-    var tmp_path = req.file.path;
+    let tmp_path = req.file.path;
 
     /** The original name of the uploaded file
         stored in the variable "originalname". **/
-    var target_path = 'uploads/temp/' + req.file.originalname;
+    let target_path = 'public/uploads/' + req.file.originalname;
 
     /** A better way to copy the uploaded file. **/
 
-    var src = fs.createReadStream(tmp_path);
-    var dest = fs.createWriteStream(target_path);
+    let src = fs.createReadStream(tmp_path);
+    let dest = fs.createWriteStream(target_path);
     src.pipe(dest);
     src.on('end', function() {
       //res.render('complete');

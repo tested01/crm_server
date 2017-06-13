@@ -16,6 +16,9 @@ var Resource = mongoose.model('Resource', {
     type: String,
     required: true
   },
+  index: {
+    type: Number
+  },
   post: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
