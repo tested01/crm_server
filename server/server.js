@@ -793,8 +793,8 @@ app.post('/shows', authenticate, (req, res) => {
 app.get('/shows', (req, res) => {
   Post.find(
     { 'publicVisible.visible' :  'uShow' }
-    //_creator: req.user._id //TODO: check if the requester is member of this course
-  )
+  ).populate('advisor')
+  .populate('author')
   .then((posts) => {
     if (!posts) {
       return res.status(404).send();
