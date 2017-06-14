@@ -790,7 +790,7 @@ app.post('/shows', authenticate, (req, res) => {
 });
 //find all posts tagged by uShow
 //reference: https://stackoverflow.com/questions/18148166/find-document-with-array-that-contains-a-specific-value
-app.get('/shows', authenticate, (req, res) => {
+app.get('/shows', (req, res) => {
   Post.find(
     { 'publicVisible.visible' :  'uShow' }
     //_creator: req.user._id //TODO: check if the requester is member of this course
