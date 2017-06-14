@@ -474,6 +474,42 @@ app.get('/users/me', authenticate, (req, res) => {
   res.send(req.user);
 });
 
+
+/*
+//Example of find by a given list of ids
+
+model.find({
+    '_id': { $in: [
+        mongoose.Types.ObjectId('4ed3ede8844f0f351100000c'),
+        mongoose.Types.ObjectId('4ed3f117a844e0471100000d'),
+        mongoose.Types.ObjectId('4ed3f18132f50c491100000e')
+    ]}
+}, function(err, docs){
+     console.log(docs);
+});
+
+*/
+
+//This API has security issue
+//sensitive data should be removed (only firstName & lastName are selected)
+//ref: http://mongoosejs.com/docs/queries.html
+app.post('/users/list', authenticate, (req, res) => {
+  const list = req.body.list;
+  const idList = list.map((id) => mongoose.Types.ObjectId(id));
+  console.log(list, idList);
+  User.find({
+    _id: { $in: idList }
+  }).select('firstName lastName')
+  .then((users) => {
+    if (!users) {
+      return res.status(404).send();
+    }
+    res.send({ users })
+  }).catch((e) => {
+    res.status(400).send();
+  });
+});
+
 app.post('/users/login', (req, res) => {
   var body = _.pick(req.body, ['email', 'password']);
 
@@ -666,7 +702,8 @@ app.post('/upload/photos', upload.array('article', 12), function (req, res, next
                                   $set: updateContent
                               }
 
-                              Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+                              Post.findOneAndUpdate(conditions, update, {new: true},
+                                function (err, doc) {
                                   console.log('updated images of the post', doc);
                               });
 
@@ -680,8 +717,6 @@ app.post('/upload/photos', upload.array('article', 12), function (req, res, next
           });
       }
     );
-
-
 
     /*
     req.files.forEach(
@@ -729,6 +764,45 @@ app.post('/upload/photo', upload.single('article'), function(req, res, next){
     console.log('文件大小：%s', file.size);
     console.log('文件保存路徑：%s', file.path);
     */
+});
+
+// API ---- shows
+app.post('/shows', authenticate, (req, res) => {
+  //update post
+  //only the advisor can give this tag
+
+  let conditions = {
+    _id: req.body.post,
+    advisor: req.user._id
+  };
+  let update = {};
+  if(req.body.operation === 'add'){
+    update = {$addToSet: { 'publicVisible.visible' :  'uShow' }};
+  }
+  if(req.body.operation === 'delete'){
+    update = {$pull: { 'publicVisible.visible' :  'uShow' }};
+  }
+
+  Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      return res.status(200).send(doc);
+  });
+
+});
+//find all posts tagged by uShow
+//reference: https://stackoverflow.com/questions/18148166/find-document-with-array-that-contains-a-specific-value
+app.get('/shows', authenticate, (req, res) => {
+  Post.find(
+    { 'publicVisible.visible' :  'uShow' }
+    //_creator: req.user._id //TODO: check if the requester is member of this course
+  )
+  .then((posts) => {
+    if (!posts) {
+      return res.status(404).send();
+    }
+    res.send({posts})
+  }).catch((e) => {
+    res.status(400).send();
+  });
 
 });
 
