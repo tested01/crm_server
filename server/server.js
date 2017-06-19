@@ -753,7 +753,6 @@ app.post('/upload/avatar', upload.single('avatar'), function(req, res, next){
     });
 
 // API ---- shows
-
 function delegateTagAdd(req, res, tag){
   let conditions = {
     _id: req.body.post,
@@ -770,6 +769,31 @@ function delegateTagAdd(req, res, tag){
   Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
       return res.status(200).send(doc);
   });
+}
+
+//delegateTagAddUdnTA is available only for udn internal members
+function delegateTagAddUdnTA(req, res, tag){
+
+  //TODO: query for the udn teachers set (role-based access control)
+  //chech if the requester is the valid role
+  //if it is, added the tag. Otherwise, reject by returning 403.
+
+  /*
+  let conditions = {
+    _id: req.body.post,
+    advisor: req.user._id
+  };
+  let update = {};
+  if(req.body.operation === 'add'){
+    update = {$addToSet: { 'publicVisible.visible' :  tag }};
+  }
+  if(req.body.operation === 'delete'){
+    update = {$pull: { 'publicVisible.visible' :  tag }};
+  }
+
+  Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      return res.status(200).send(doc);
+  });*/
 }
 
 function delegateTagGet(req, res, tag){
