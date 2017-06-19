@@ -21,6 +21,7 @@ app.use(bodyParser.json());
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const mkdirp = require('mkdirp');
 
 const upload = multer({
   dest: path.join(__dirname, '../public/uploads/temp')
@@ -638,8 +639,6 @@ app.patch('/posts/unlike/:pid', authenticate, (req, res) => {
 //多圖上傳
 app.post('/upload/photos', upload.array('article', 12), function (req, res, next){
     //req.post_id 要傳一下 post_id
-    console.log(req, 'req');
-    console.log(req.body.post_id, 'post_id');
     let resourceList = [];
     const indexLength = req.files.length;
     req.files.forEach(
@@ -673,128 +672,112 @@ app.post('/upload/photos', upload.array('article', 12), function (req, res, next
           resource.save().then((doc) => resourceList.push(doc._id)).catch((e) => {
             console.log('resource save error --- ', e);
           });
-
-          const mkdirp = require('mkdirp');
           mkdirp(targetDir, function (err) {
               if (err){
                 console.error(err);
               }
               else{
-                          /** A better way to copy the uploaded file. **/
+                /** A better way to copy the uploaded file. **/
 
-                          let src = fs.createReadStream(tmp_path);
-                          let dest = fs.createWriteStream(target_path);
-                          src.pipe(dest);
-                          src.on('end', function(){
-                            //res.render('complete');
-                            if(index == indexLength-1){
-                              console.log(resourceList, 'resourceList');
+                let src = fs.createReadStream(tmp_path);
+                let dest = fs.createWriteStream(target_path);
+                src.pipe(dest);
+                src.on('end', function(){
+                  //res.render('complete');
+                  if(index == indexLength-1){
+                    console.log(resourceList, 'resourceList');
 
-                              //TODO: patch post's resource
-                              let conditions = {
-                                _id: req.body.post_id
-                              };
-                              let updateContent = {
-                                'detail.resources': resourceList
-                              };
-                              let update = {
-                                  //$pullAll: { 'likes.users' :  [userId] }
-                                  $set: updateContent
-                              }
+                    //TODO: patch post's resource
+                    let conditions = {
+                      _id: req.body.post_id
+                    };
+                    let updateContent = {
+                      'detail.resources': resourceList
+                    };
+                    let update = {
+                        //$pullAll: { 'likes.users' :  [userId] }
+                        $set: updateContent
+                    }
 
-                              Post.findOneAndUpdate(conditions, update, {new: true},
-                                function (err, doc) {
-                                  console.log('updated images of the post', doc);
-                              });
+                    Post.findOneAndUpdate(conditions, update, {new: true},
+                      function (err, doc) {
+                        console.log('updated images of the post', doc);
+                    });
 
-                            }
-                          });
-                          src.on('error', function(err) {
-                            //res.render('error');
-                            console.log('error', err);
-                          });
+                  }
+                });
+                src.on('error', function(err) {
+                  //res.render('error');
+                  console.log('error', err);
+                });
               }
           });
       }
     );
-
-    /*
-    req.files.forEach(
-      function (file) {
-        console.log('文件類型：%s', file.mimetype);
-        console.log('原始文件名：%s', file.originalname);
-        console.log('文件大小：%s', file.size);
-        console.log('文件保存路徑：%s', file.path);
-      }
-    );*/
-    //res.send({ret_code: '0'});
 });
 
-//單圖上傳
-app.post('/upload/photo', upload.single('article'), function(req, res, next){
-    console.log(req);
+
+//單張頭像照片上傳
+app.post('/upload/avatar', upload.single('avatar'), function(req, res, next){
     /** When using the "single"
     data come in "req.file" regardless of the attribute "name". **/
     let tmp_path = req.file.path;
-
-    /** The original name of the uploaded file
-        stored in the variable "originalname". **/
-    let target_path = 'public/uploads/' + req.file.originalname;
-
-    /** A better way to copy the uploaded file. **/
-
-    let src = fs.createReadStream(tmp_path);
-    let dest = fs.createWriteStream(target_path);
-    src.pipe(dest);
-    src.on('end', function() {
-      //res.render('complete');
-      console.log('complete');
+    const targetDir = 'public/uploads/userImg/'.concat(req.body.auth_id)
+                       .concat('/');
+    let pieces = file.originalname.split('.');
+    let fileExtension = pieces[pieces.length-1];
+    //check fileExtention to prevent attack
+    if(['png', 'jpg'].includes(fileExtension)){
+      const target_path = targetDir + 'avatar.' + fileExtension;
+      let uri = '/uploads/userImg/' + req.body.auth_id +
+                '/' + 'avatar.' + fileExtension;
+                mkdirp(targetDir, function (err) {
+                    if (err){
+                          console.error(err);
+                    }
+                    else {
+                          let src = fs.createReadStream(tmp_path);
+                          let dest = fs.createWriteStream(target_path);
+                          src.pipe(dest);
+                          src.on('end', function() {
+                            console.log('complete');
+                          });
+                          src.on('error', function(err) {
+                            console.log('error', err);
+                          });
+                    }
+                  });
+                } else {
+                        res.send(404); //Forbidden: invalid file extension
+                       }
     });
-    src.on('error', function(err) {
-      //res.render('error');
-      console.log('error', err);
-    });
-
-    //req.post_id 要傳一下 post_id
-    /*
-    const file = req.file;
-    console.log(req, 'req......');
-    console.log('文件類型：%s', file.mimetype);
-    console.log('原始文件名：%s', file.originalname);
-    console.log('文件大小：%s', file.size);
-    console.log('文件保存路徑：%s', file.path);
-    */
-});
 
 // API ---- shows
-app.post('/shows', authenticate, (req, res) => {
-  //update post
-  //only the advisor can give this tag
 
+function delegateTagAdd(req, res, tag){
   let conditions = {
     _id: req.body.post,
     advisor: req.user._id
   };
   let update = {};
   if(req.body.operation === 'add'){
-    update = {$addToSet: { 'publicVisible.visible' :  'uShow' }};
+    update = {$addToSet: { 'publicVisible.visible' :  tag }};
   }
   if(req.body.operation === 'delete'){
-    update = {$pull: { 'publicVisible.visible' :  'uShow' }};
+    update = {$pull: { 'publicVisible.visible' :  tag }};
   }
 
   Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
       return res.status(200).send(doc);
   });
+}
 
-});
-//find all posts tagged by uShow
-//reference: https://stackoverflow.com/questions/18148166/find-document-with-array-that-contains-a-specific-value
-app.get('/shows', (req, res) => {
+function delegateTagGet(req, res, tag){
   Post.find(
-    { 'publicVisible.visible' :  'uShow' }
+    { 'publicVisible.visible' :  tag }
   ).populate('advisor')
   .populate('author')
+  .populate('detail.resources')
   .then((posts) => {
     if (!posts) {
       return res.status(404).send();
@@ -803,7 +786,17 @@ app.get('/shows', (req, res) => {
   }).catch((e) => {
     res.status(400).send();
   });
+}
 
+app.post('/shows', authenticate, (req, res) => {
+  //update post
+  //only the advisor can give this tag
+  delegateTagAdd(req, res, 'uShow');
+});
+//find all posts tagged by uShow
+//reference: https://stackoverflow.com/questions/18148166/find-document-with-array-that-contains-a-specific-value
+app.get('/shows', (req, res) => {
+  delegateTagGet(req, res, 'uShow');
 });
 
 //app.set('view engine', 'jade');
