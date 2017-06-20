@@ -9,9 +9,11 @@ const { Course } = require('./models/course');
 const { Mission } = require('./models/mission');
 const { Post } = require('./models/post');
 const { User } = require('./models/user');
+const { Notification } = require('./models/notification');
 const { Resource } = require('./models/resource');
 const { authenticate } = require('./middleware/authenticate');
 const multer = require('multer');
+
 const app = express();
 const port = process.env.PORT;
 
@@ -29,8 +31,8 @@ const upload = multer({
 
 app.use(express.static('public'));
 
-function genCode ( howMany, chars) {
-    chars = chars
+function genCode(howMany, charsP) {
+    const chars = charsP
         || "abcdefghijklmnopqrstuwxyzABCDEFGHIJKLMNOPQRSTUWXYZ0123456789";
     const rnd = crypto.randomBytes(howMany);
     const value = new Array(howMany);
@@ -38,7 +40,7 @@ function genCode ( howMany, chars) {
 
     for (let i = 0; i < howMany; i++) {
         value[i] = chars[rnd[i] % len]
-    };
+    }
 
     return value.join('');
 }
@@ -823,6 +825,46 @@ app.get('/shows', (req, res) => {
   delegateTagGet(req, res, 'uShow');
 });
 
+// API ---- notifications
+app.post('/notifications', authenticate, (req, res) => {
+  //Only 'backend' can create notifications
+  /*
+  if(!(req.user.role=='backend')){
+    return res.status(403).send();
+  }*/
+
+  const expiredDate = Date.parse(req.body.expiredDate);
+  const title = req.body.title;
+  const contentUri = req.body.contentUri;
+
+  const notification = new Notification({
+    author: req.user._id,
+    detail:{
+      title,
+      contentUri
+    },
+    expiredDate
+  });
+  notification.save().then((doc) => {
+    res.send(doc);
+  }, (e) => {
+    res.status(400).send(e);
+  });
+});
+
+app.get('/notifications', authenticate, (req, res) => {
+  //Only 'backend' can create notifications
+  /*
+  if(!(req.user.role=='backend')){
+    return res.status(403).send();
+  }*/
+
+  Notification.find().then((notifications) => {
+    res.send(notifications);
+  }, (e) => {
+    res.status(400).send(e);
+  });
+});
 //app.set('view engine', 'jade');
 
 app.listen(port, () => {
