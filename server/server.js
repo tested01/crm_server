@@ -780,10 +780,10 @@ function delegateTagAddUdnTA(req, res, tag){
   //chech if the requester is the valid role
   //if it is, added the tag. Otherwise, reject by returning 403.
 
-  /*
+  //TODO: That is, check if req.user._id has the access role!!
+
   let conditions = {
-    _id: req.body.post,
-    advisor: req.user._id
+    _id: req.body.post
   };
   let update = {};
   if(req.body.operation === 'add'){
@@ -795,7 +795,7 @@ function delegateTagAddUdnTA(req, res, tag){
 
   Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
       return res.status(200).send(doc);
-  });*/
+  });
 }
 
 function delegateTagGet(req, res, tag){
@@ -819,10 +819,21 @@ app.post('/shows', authenticate, (req, res) => {
   //only the advisor can give this tag
   delegateTagAdd(req, res, 'uShow');
 });
-//find all posts tagged by uShow
+//find all posts tagged by uStar
 //reference: https://stackoverflow.com/questions/18148166/find-document-with-array-that-contains-a-specific-value
 app.get('/shows', (req, res) => {
   delegateTagGet(req, res, 'uShow');
+});
+
+app.post('/stars', authenticate, (req, res) => {
+  //update post
+  //only the advisor can give this tag
+  delegateTagAddUdnTA(req, res, 'uStar');
+});
+//find all posts tagged by uStar
+//reference: https://stackoverflow.com/questions/18148166/find-document-with-array-that-contains-a-specific-value
+app.get('/stars', (req, res) => {
+  delegateTagGet(req, res, 'uStar');
 });
 
 // API ---- notifications
