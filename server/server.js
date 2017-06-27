@@ -539,7 +539,8 @@ app.post('/posts', authenticate, (req, res) => {
   var body = _.pick(req.body, [
     'detail',
     'mission',
-    'advisor'
+    'advisor',
+    'openaccess'
   ]);
   body.author = req.user;
   const post = new Post(body);
@@ -551,11 +552,13 @@ app.post('/posts', authenticate, (req, res) => {
   let update = {
       $addToSet: { 'students.submitted' :  userId }
   }
-  Mission.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
-      //return res.status(200).send(doc);
-  });
 
-  post.save().then((doc) => res.send(doc)).catch((e) => {
+  post.save().then((doc) => {
+    Mission.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+        //add only when adding the post successfully
+    });
+    res.send(doc);
+  }).catch((e) => {
     res.status(400).send(e);
   })
 });

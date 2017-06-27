@@ -37,6 +37,11 @@ var Post = mongoose.model('Post', {
     visible: [{ type: String }],
     default: []
   },
+  openaccess: {
+    type: Boolean,
+    default: true,
+    require: true
+  },
   tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }],
   _creator: {
     type: mongoose.Schema.Types.ObjectId,
@@ -44,4 +49,11 @@ var Post = mongoose.model('Post', {
   }
 });
 
+//TODO: sync the likes and likeCounts
+//For further sorting (e.g. hot posts)
+/*
+Post.methods.syncLikeCounts = function(oid) {
+  let currentPost = this.model('Post').find({'_id': oid});
+};
+*/
 module.exports = {Post};
