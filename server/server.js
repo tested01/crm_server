@@ -906,18 +906,16 @@ app.get('/posts/filters/:filter/:limit', authenticate, (req, res)  => {
     function(err,results) {
         // results in here
         console.log(err, results, 'results...');
-        User.populate(results, {path: 'author'},
+        User.populate(results, { path: 'author' },
           function(err, populatedResults) {
-            // Your populated translactions are inside populatedTransactions
-            //res.send({ "posts": populatedResults });
-            User.populate(populatedResults, {path: 'advisor'},
-              function(err, results) {
-                // Your populated translactions are inside populatedTransactions
-                //res.send({ "posts": results });
-                Resource.populate(results, {path: 'detail.resources'},
-                  function(err, populatedResults) {
-                    // Your populated translactions are inside populatedTransactions
-                    res.send({ "posts": populatedResults });
+          
+            User.populate(populatedResults, { path: 'advisor' },
+              function(err, results2) {
+
+                Resource.populate(results2, { path: 'detail.resources' },
+                  function(err, populatedResults2) {
+
+                    res.send({ posts: populatedResults2 });
                 });
             });
 
