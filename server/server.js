@@ -839,6 +839,95 @@ app.get('/stars', (req, res) => {
   delegateTagGet(req, res, 'uStar');
 });
 
+app.get('/posts/filters/:filter/:limit', authenticate, (req, res)  => {
+  const filter = req.params.filter;
+  const limit = Number(req.params.limit);
+  if (filter === 'new') {
+    Post.find(
+      { openaccess: true }
+    ).sort({ createdDate: -1 })
+    .limit(limit)
+    .populate('advisor')
+    .populate('author')
+    .populate('detail.resources')
+    .then((posts) => {
+      if (!posts) {
+        return res.status(404).send();
+      }
+      res.send({ posts })
+    })
+    .catch((e) => {
+      res.status(400).send();
+    });
+  }
+  if (filter === 'hot'){
+    //TODO: get most popular posts
+    /*
+    Post.find(
+      { openaccess: true }
+    ).sort({ createdDate: -1 })
+    .limit(20)
+    .populate('advisor')
+    .populate('author')
+    .populate('detail.resources')
+    .then((posts) => {
+      if (!posts) {
+        return res.status(404).send();
+      }
+      res.send({ posts })
+    })
+    .catch((e) => {
+      res.status(400).send();
+    });
+  }
+  */
+
+  Post.aggregate(
+    [
+        { "$match":
+          {"openaccess": true}
+        },
+
+        { "$project": {
+            "detail": 1,
+            "createdDate": 1,
+            "mission": 1,
+            "coursesVisible": 1,
+            "publicVisible": 1,
+            "openaccess": 1,
+            "author": 1,
+            "advisor": 1,
+            "likes": 1,
+            "likeCounts": { "$size": "$likes.users" }
+        }},
+        { "$sort": { "likeCounts": -1 } },
+        { "$limit": limit }
+    ],
+    function(err,results) {
+        // results in here
+        console.log(err, results, 'results...');
+        User.populate(results, {path: 'author'},
+          function(err, populatedResults) {
+            // Your populated translactions are inside populatedTransactions
+            //res.send({ "posts": populatedResults });
+            User.populate(populatedResults, {path: 'advisor'},
+              function(err, results) {
+                // Your populated translactions are inside populatedTransactions
+                //res.send({ "posts": results });
+                Resource.populate(results, {path: 'detail.resources'},
+                  function(err, populatedResults) {
+                    // Your populated translactions are inside populatedTransactions
+                    res.send({ "posts": populatedResults });
+                });
+            });
+
+        });
+
+    }
+  );
+  }
+});
+
 // API ---- notifications
 app.post('/notifications', authenticate, (req, res) => {
   //Only 'backend' can create notifications
