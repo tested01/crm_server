@@ -478,6 +478,50 @@ app.get('/users/me', authenticate, (req, res) => {
 });
 
 
+app.post('/users/hasemail', (req, res) => {
+  var body = _.pick(req.body, [
+    'email'
+  ]);
+  User.find({
+    email: body.email
+  })
+  .then((users) => {
+    if (!users) {
+      //return res.status(404).send();
+      res.send({ result: false })
+    }
+    if(users.length == 0){
+      res.send({ result: false })
+    }
+    res.send({ result: true })
+  }).catch((e) => {
+    res.status(400).send();
+  });
+
+});
+
+app.post('/users/hasphone', (req, res) => {
+  var body = _.pick(req.body, [
+    'phone'
+  ]);
+  User.find({
+    phone: body.phone
+  })
+  .then((users) => {
+    if (!users) {
+      //return res.status(404).send();
+      res.send({ result: false })
+    }
+    if(users.length == 0){
+      res.send({ result: false })
+    }
+    res.send({ result: true })
+  }).catch((e) => {
+    res.status(400).send();
+  });
+
+});
+
 /*
 //Example of find by a given list of ids
 
@@ -908,7 +952,7 @@ app.get('/posts/filters/:filter/:limit', authenticate, (req, res)  => {
         console.log(err, results, 'results...');
         User.populate(results, { path: 'author' },
           function(err, populatedResults) {
-          
+
             User.populate(populatedResults, { path: 'advisor' },
               function(err, results2) {
 
