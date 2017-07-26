@@ -16,6 +16,38 @@ const multer = require('multer');
 
 const app = express();
 const port = process.env.PORT;
+const cors = require('express-cors')
+
+/*
+app.use(cors({
+    allowedOrigins: [
+        '*'
+    ]
+}));
+*/
+
+// Add headers
+app.use(function (req, res, next) {
+
+    // Website you wish to allow to connect
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Request methods you wish to allow
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST'); //, OPTIONS, PUT, PATCH, DELETE'
+
+    // Request headers you wish to allow
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, content-type, Accept, x-auth');
+
+
+    res.setHeader('Access-Control-Expose-Headers', 'x-auth');
+
+    // Set to true if you need the website to include cookies in the requests sent
+    // to the API (e.g. in case you use sessions)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+
+    // Pass to next layer of middleware
+    next();
+});
 
 app.use(bodyParser.json());
 //app.use(multer({ dest: './uploads/' }));
@@ -565,7 +597,8 @@ app.post('/users/login', (req, res) => {
       res.header('x-auth', token).send(user);
     });
   }).catch((e) => {
-    res.status(400).send();
+    console.log(e);
+    res.status(400).send(e);
   });
 });
 
@@ -832,6 +865,9 @@ function delegateTagAddUdnTA(req, res, tag){
   let conditions = {
     _id: req.body.post
   };
+  let author = req.user._id;
+  let markedDate = new Date();
+  
   let update = {};
   if(req.body.operation === 'add'){
     update = {$addToSet: { 'publicVisible.visible' :  tag }};
@@ -846,6 +882,7 @@ function delegateTagAddUdnTA(req, res, tag){
 }
 
 function delegateTagGet(req, res, tag){
+
   Post.find(
     { 'publicVisible.visible' :  tag }
   ).populate('advisor')
@@ -864,8 +901,25 @@ function delegateTagGet(req, res, tag){
 app.post('/shows', authenticate, (req, res) => {
   //update post
   //only the advisor can give this tag
-  delegateTagAdd(req, res, 'uShow');
+  if(!(req.user.role=='teacher')){
+    return res.status(403).send();
+  }else{
+    delegateTagAdd(req, res, 'uShow');
+  }
+
 });
+
+/*
+app.all('/users/login', function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  next();
+ });
+ */
+
+
+
+
 //find all posts tagged by uStar
 //reference: https://stackoverflow.com/questions/18148166/find-document-with-array-that-contains-a-specific-value
 app.get('/shows', (req, res) => {
