@@ -84,11 +84,12 @@ function courseCode(howMany, chars) {
 
 //Logging mechanism
 function doActivityLog(activity){
-  let { subject, logType, predicate, object } = activity;
+  let { subject, logType, predicate, object, data } = activity;
   const activityLog = new ActivityLog({
     subject,
     logType,
     predicate,
+    data,
     object,
   });
   activityLog.save().then((doc) => {
@@ -751,6 +752,12 @@ app.patch('/posts/unlike/:pid', authenticate, (req, res) => {
   }
 
   Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      let activity={};
+      activity.subject = req.user._id;
+      activity.predicate = 'unlike';
+      activity.logType = 'unlikePost';
+      activity.object = pid;
+      doActivityLog(activity);
       return res.status(200).send(doc);
   });
 });
@@ -915,6 +922,13 @@ function delegateTagAddUdnTA(req, res, tag){
   }
 
   Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      let activity={};
+      activity.subject = author;
+      activity.predicate = 'tag';
+      activity.logType = 'tagPost';
+      activity.data = {tag};
+      activity.object = pid;
+      doActivityLog(activity);
       return res.status(200).send(doc);
   });
 }
