@@ -10,6 +10,7 @@ const { Mission } = require('./models/mission');
 const { Post } = require('./models/post');
 const { User } = require('./models/user');
 const { Notification } = require('./models/notification');
+const { ActivityLog } = require('./models/activitylog');
 const { Resource } = require('./models/resource');
 const { authenticate } = require('./middleware/authenticate');
 const multer = require('multer');
@@ -79,6 +80,24 @@ function genCode(howMany, charsP) {
 
 function courseCode(howMany, chars) {
   return genCode(howMany, chars);
+}
+
+//Logging mechanism
+function doActivityLog(activity){
+  let { subject, logType, predicate, object } = activity;
+  const activityLog = new ActivityLog({
+    subject,
+    logType,
+    predicate,
+    object,
+  });
+  activityLog.save().then((doc) => {
+    //res.send(doc);
+    return { success: true, data: doc};
+  }, (e) => {
+    //res.status(400).send(e);
+    return { success: false, data: e};
+  });
 }
 
 // API ---- Mission
@@ -256,6 +275,13 @@ app.post('/courses', authenticate, (req, res) => {
       code: courseCode(10, '0123456789')
     });
   course.save().then((doc) => {
+    let activity={};
+    activity.subject = req.user._id;
+    activity.predicate = 'create';
+    activity.logType = 'createCourse';
+    activity.object = doc._id;
+
+    doActivityLog(activity);
     res.send(doc);
   }, (e) => {
     res.status(400).send(e);
@@ -867,7 +893,8 @@ function delegateTagAddUdnTA(req, res, tag){
   };
   let author = req.user._id;
   let markedDate = new Date();
-  
+  //TODO: add a log for who add the uShow or uStar tags at which time
+
   let update = {};
   if(req.body.operation === 'add'){
     update = {$addToSet: { 'publicVisible.visible' :  tag }};
@@ -1062,6 +1089,39 @@ app.get('/notifications', authenticate, (req, res) => {
     res.send(notifications);
   }, (e) => {
     res.status(400).send(e);
+  });
+});
+
+app.get('/activity_notifications', authenticate, (req, res) => {
+  //Aggregate adjacent activity notifs
+  let user = req.user;
+
+  ActivityLog.find().then((activityLogs) => {
+    res.send(activityLogs);
+  }, (e) => {
+    res.status(400).send(e);
+  });
+});
+
+app.post('/activity_notifications', authenticate, (req, res) => {
+  //Aggregate adjacent activity notifs
+  let user = req.user;
+  let subject = req.user._id;
+  let logType = req.body.logType;
+  let predicate = req.body.predicate;
+  let object = req.body.object;
+  const activityLog = new ActivityLog({
+    subject,
+    logType,
+    predicate,
+    object,
+  });
+  activityLog.save().then((doc) => {
+    res.send(doc);
+
+  }, (e) => {
+    res.status(400).send(e);
+
   });
 });
 //app.set('view engine', 'jade');
