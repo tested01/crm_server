@@ -121,6 +121,12 @@ app.post('/missions', authenticate, (req, res) => {
       target:  req.body.target
     });
   mission.save().then((doc) => {
+    let activity={};
+    activity.subject = req.user._id;
+    activity.predicate = 'create';
+    activity.logType = 'createMission';
+    activity.object = doc._id;
+    doActivityLog(activity);
     res.send(doc);
   }, (e) => {
     res.status(400).send(e);
