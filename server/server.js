@@ -280,7 +280,6 @@ app.post('/courses', authenticate, (req, res) => {
     activity.predicate = 'create';
     activity.logType = 'createCourse';
     activity.object = doc._id;
-
     doActivityLog(activity);
     res.send(doc);
   }, (e) => {
@@ -362,6 +361,12 @@ app.post('/courses/:code/students', authenticate, (req, res) => {
 
     if (!(existingStudent)) {
       course.members.students.push(req.user._id);
+      let activity={};
+      activity.subject = req.user._id;
+      activity.predicate = 'join';
+      activity.logType = 'joinCourse';
+      activity.object = course._id;
+      doActivityLog(activity);
       course.save();
     }
     res.send({ course });
@@ -721,6 +726,12 @@ app.patch('/posts/like/:pid', authenticate, (req, res) => {
   }
 
   Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
+      let activity={};
+      activity.subject = req.user._id;
+      activity.predicate = 'like';
+      activity.logType = 'likePost';
+      activity.object = pid;
+      doActivityLog(activity);
       return res.status(200).send(doc);
   });
 });
