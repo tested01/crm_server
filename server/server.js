@@ -671,6 +671,12 @@ app.post('/posts', authenticate, (req, res) => {
   post.save().then((doc) => {
     Mission.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
         //add only when adding the post successfully
+        let activity={};
+        activity.subject = req.user._id;
+        activity.predicate = 'post';
+        activity.logType = 'postMission';
+        activity.object = doc._id;
+        doActivityLog(activity);
     });
     res.send(doc);
   }).catch((e) => {
