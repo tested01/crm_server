@@ -10,14 +10,15 @@ const { Mission } = require('./models/mission');
 const { Post } = require('./models/post');
 const { User } = require('./models/user');
 const { Notification } = require('./models/notification');
+const { PersonalNotifications } = require('./models/personalNotifications');
 const { ActivityLog } = require('./models/activitylog');
 const { Resource } = require('./models/resource');
 const { authenticate } = require('./middleware/authenticate');
 const multer = require('multer');
-
+const { NotificationTypes, LogTypes } = require('./constants');
 const app = express();
 const port = process.env.PORT;
-const cors = require('express-cors')
+//const cors = require('express-cors')
 
 /*
 app.use(cors({
@@ -48,6 +49,7 @@ app.use(function (req, res, next) {
 
     // Pass to next layer of middleware
     next();
+
 });
 
 app.use(bodyParser.json());
@@ -94,11 +96,205 @@ function doActivityLog(activity){
   });
   activityLog.save().then((doc) => {
     //res.send(doc);
+    delegateActivityLog(activity);
     return { success: true, data: doc};
   }, (e) => {
     //res.status(400).send(e);
     return { success: false, data: e};
   });
+}
+
+function delegateActivityLog(activity){
+  let { subject, logType, object, data } = activity;
+  let notification = {}; //owner, logType, data
+    //delegate notifications to each corresponding users
+  User.findOne({_id: subject}).exec((err, triggerUser) => {
+    let subjectFullName = triggerUser.lastName + triggerUser.firstName;
+    switch(logType){
+      case LogTypes.JOINCOURSE:
+        console.log('JOINCOURSE');
+
+        //Audience: students of the course excepts for the joining one
+        //generate notification (via template)
+        //send to all audiences via addPersonalNotifications(notification);
+        Course.findOne({_id: object})
+              .populate('_creator')
+              .populate('members.students')
+              .exec((err, course) => {
+                let courseStudents = course.members.students;
+                let courseName = course.name;
+                //teacher
+                let teacher_notification = {
+                  owner: course._creator._id,
+                  notifType: NotificationTypes.S_JOINCOURSE,
+                  data: {
+                    message: `${subjectFullName}加入了「${courseName}」班`
+                  }
+                }
+                addPersonalNotifications(teacher_notification)
+                //students
+                courseStudents.map(
+                  (student) => {
+                    let studentFullName = student.lastName + student.firstName;
+                    let notification = {
+                      owner: student._id,
+                      notifType: NotificationTypes.S_JOINCOURSE,
+                      data: {
+                        message: `${subjectFullName}加入了「${courseName}」班`
+                      }
+                    }
+                    addPersonalNotifications(notification)
+                  }
+                );
+                });
+        break;
+      case LogTypes.CREATETASK:
+        console.log('CREATETASK');
+        //NotificationTypes.T_CREATETASK
+        //Audience: students of the course
+        Mission.findOne({_id: object})
+              .populate('_creator')
+              .populate('target')
+              .exec((err, mission) => {
+
+                let missionTitle = mission.title;
+
+                Course.findOne({_id: mission.target})
+                      .populate('_creator')
+                      .populate('members.students')
+                      .exec((err, course) => {
+                        let courseStudents = course.members.students;
+                        let courseName = course.name;
+
+                        courseStudents.map(
+                          (student) => {
+                            let studentFullName = student.lastName + student.firstName;
+                            let notification = {
+                              owner: student._id,
+                              notifType: NotificationTypes.T_CREATETASK,
+                              data: {
+                                message: `${subjectFullName} 在「${courseName}」新增了一個作品繳交項目: 「${missionTitle}」`
+                              }
+                            }
+                            addPersonalNotifications(notification)
+                          }
+                        );
+                        });
+
+                });
+        break;
+      case LogTypes.SUBMITTASK:
+        console.log('SUBMITTASK');
+       //Audoence:
+       // 1. students of the course excepts for the submitter
+       // 2. teacher of the course
+       //FIXME: object is now mission id not post id...
+       console.log(object);
+       Post.findOne({_id: object})
+             .populate('mission')
+             .populate('advisor')
+             .populate('author')
+             .exec((err, post) => {
+
+               let missionTitle = post.mission.title;
+
+               Course.findOne({_id: post.mission.target})
+                     .populate('_creator')
+                     .populate('members.students')
+                     .exec((err, course) => {
+                       let courseStudents = course.members.students;
+                       let courseName = course.name;
+                       //teacher
+                       let teacher_notification = {
+                         owner: course._creator._id,
+                         notifType: NotificationTypes.S_SUBMITTASK,
+                         data: {
+                           message: `${subjectFullName} 已在繳交項目「${missionTitle}」中上傳作品`
+                         }
+                       }
+                       addPersonalNotifications(teacher_notification);
+                       //students
+                       courseStudents.map(
+                         (student) => {
+                           let studentFullName = student.lastName + student.firstName;
+                           let notification = {
+                             owner: student._id,
+                             notifType: NotificationTypes.S_SUBMITTASK,
+                             data: {
+                               message: `${subjectFullName} 已在繳交項目「${missionTitle}」中上傳作品`
+                             }
+                           }
+                           addPersonalNotifications(notification);
+                         }
+                       );
+                       });
+
+               });
+        break;
+      case LogTypes.LIKEAPOST:
+        console.log('LIKEAPOST');
+      //Audience:
+      // 1. author
+      //TODO: 我對我自己文章按讚
+      Post.findOne({_id: object})
+            .populate('author')
+            .exec((err, post) => {
+
+              let postTitle = post.detail.title;
+              let authorName = post.author.lastName + post.author.firstName;
+              //student
+              let notification = {
+                owner: post.author._id,
+                notifType: NotificationTypes.A_LIKEAPOST,
+                data: {
+                  message: `${subjectFullName}對你的「${postTitle}」作品按讚`
+                }
+              }
+              addPersonalNotifications(notification);
+              //teacher
+              //student
+              let teacher_notification = {
+                owner: post.advisor,
+                notifType: NotificationTypes.A_LIKEAPOST,
+                data: {
+                  message: `${subjectFullName}對你指導${authorName}的「${postTitle}」作品按讚`
+                }
+              }
+              addPersonalNotifications(teacher_notification);
+
+
+        });
+        break;
+      case LogTypes.USHOWAWARD:
+        console.log('USHOWAWARD');
+        let postTitle = data.post.detail.title;
+        if(data.tag == 'uStar'){
+          //Audience:
+          // 1. author(student)
+          let s_notification = {
+            owner: data.post.author,
+            notifType: NotificationTypes.S_USHOWAWARD,
+            data: {
+              message: `你的作品「${postTitle}」被推薦為聯合報之星`
+            }
+          }
+          addPersonalNotifications(s_notification);
+          // 2. advisor
+          let t_notification = {
+            owner: data.post.advisor,
+            notifType: NotificationTypes.T_USHOWAWARD,
+            data: {
+              message: `你指導的${subjectFullName}同學的作品「${postTitle}」被推薦為聯合報之星`
+            }
+          }
+          addPersonalNotifications(t_notification);
+        }
+
+        break;
+    }
+    }
+  );
+
 }
 
 // API ---- Mission
@@ -124,7 +320,7 @@ app.post('/missions', authenticate, (req, res) => {
     let activity={};
     activity.subject = req.user._id;
     activity.predicate = 'create';
-    activity.logType = 'createMission';
+    activity.logType = LogTypes.CREATETASK;//'createMission';
     activity.object = doc._id;
     doActivityLog(activity);
     res.send(doc);
@@ -285,7 +481,7 @@ app.post('/courses', authenticate, (req, res) => {
     let activity={};
     activity.subject = req.user._id;
     activity.predicate = 'create';
-    activity.logType = 'createCourse';
+    activity.logType = LogTypes.CREATECOURSE;//'createCourse';
     activity.object = doc._id;
     doActivityLog(activity);
     res.send(doc);
@@ -371,7 +567,7 @@ app.post('/courses/:code/students', authenticate, (req, res) => {
       let activity={};
       activity.subject = req.user._id;
       activity.predicate = 'join';
-      activity.logType = 'joinCourse';
+      activity.logType = LogTypes.JOINCOURSE; //'joinCourse';
       activity.object = course._id;
       doActivityLog(activity);
       course.save();
@@ -650,7 +846,7 @@ app.delete('/users/me/token', authenticate, (req, res) => {
 
 
 // API ---- Post
-app.post('/posts', authenticate, (req, res) => {
+app.post('/posts/', authenticate, (req, res) => {
   var body = _.pick(req.body, [
     'detail',
     'mission',
@@ -668,17 +864,17 @@ app.post('/posts', authenticate, (req, res) => {
       $addToSet: { 'students.submitted' :  userId }
   }
 
-  post.save().then((doc) => {
+  post.save().then((post) => {
     Mission.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
         //add only when adding the post successfully
         let activity={};
         activity.subject = req.user._id;
         activity.predicate = 'post';
-        activity.logType = 'postMission';
-        activity.object = doc._id;
+        activity.logType = LogTypes.SUBMITTASK; //'postMission';
+        activity.object = post._id;
         doActivityLog(activity);
     });
-    res.send(doc);
+    res.send(post);
   }).catch((e) => {
     res.status(400).send(e);
   })
@@ -742,7 +938,7 @@ app.patch('/posts/like/:pid', authenticate, (req, res) => {
       let activity={};
       activity.subject = req.user._id;
       activity.predicate = 'like';
-      activity.logType = 'likePost';
+      activity.logType = LogTypes.LIKEAPOST; //'likePost';
       activity.object = pid;
       doActivityLog(activity);
       return res.status(200).send(doc);
@@ -767,7 +963,7 @@ app.patch('/posts/unlike/:pid', authenticate, (req, res) => {
       let activity={};
       activity.subject = req.user._id;
       activity.predicate = 'unlike';
-      activity.logType = 'unlikePost';
+      activity.logType = LogTypes.UNLIKEAPOST; //'unlikePost';
       activity.object = pid;
       doActivityLog(activity);
       return res.status(200).send(doc);
@@ -933,15 +1129,20 @@ function delegateTagAddUdnTA(req, res, tag){
     update = {$pull: { 'publicVisible.visible' :  tag }};
   }
 
-  Post.findOneAndUpdate(conditions, update, {new: true}, function(err, doc) {
-      let activity={};
-      activity.subject = author;
-      activity.predicate = 'tag';
-      activity.logType = 'tagPost';
-      activity.data = {tag};
-      activity.object = pid;
-      doActivityLog(activity);
-      return res.status(200).send(doc);
+  Post.findOneAndUpdate(conditions, update, {new: false}, function(err, post) {
+          // 動作為加星星, 且目前不是 uStar
+      if((req.body.operation === 'add') && (!post.publicVisible.visible.includes('uStar'))){
+        let activity={};
+        post.populate('author').populate('advisor');
+        activity.subject = author;
+        activity.predicate = 'tag';
+        activity.logType = LogTypes.USHOWAWARD; //'tagPost';
+        activity.data = {tag, post};
+        activity.object = post._id;
+        doActivityLog(activity);
+      }
+
+      return res.status(200).send(post);
   });
 }
 
@@ -1129,7 +1330,7 @@ app.get('/notifications', authenticate, (req, res) => {
   });
 });
 
-app.get('/activity_notifications', authenticate, (req, res) => {
+app.get('/activity_log', authenticate, (req, res) => {
   //Aggregate adjacent activity notifs
   let user = req.user;
 
@@ -1140,20 +1341,23 @@ app.get('/activity_notifications', authenticate, (req, res) => {
   });
 });
 
-app.post('/activity_notifications', authenticate, (req, res) => {
+app.post('/activity_log', authenticate, (req, res) => {
   //Aggregate adjacent activity notifs
   let user = req.user;
   let subject = req.user._id;
   let logType = req.body.logType;
   let predicate = req.body.predicate;
   let object = req.body.object;
+  let data = req.body.data;
   const activityLog = new ActivityLog({
     subject,
     logType,
     predicate,
+    data,
     object,
   });
   activityLog.save().then((doc) => {
+    delegateActivityLog(activityLog);
     res.send(doc);
 
   }, (e) => {
@@ -1161,6 +1365,95 @@ app.post('/activity_notifications', authenticate, (req, res) => {
 
   });
 });
+
+app.get('/personal_notifications', authenticate, (req, res) => {
+  //Aggregate adjacent activity notifs
+  let user = req.user;
+  PersonalNotifications.find(
+    { owner: user._id }
+  ).then((notifications) => {
+    res.send(notifications);
+  }, (e) => {
+    res.status(400).send(e);
+  });
+});
+
+app.get('/personal_notifications', authenticate, (req, res) => {
+  //Aggregate adjacent activity notifs
+  let user = req.user;
+  PersonalNotifications.find(
+    { owner: user._id }
+  ).sort({ happenAt: -1 })
+  .then((notifications) => {
+    res.send(notifications);
+  }, (e) => {
+    res.status(400).send(e);
+  });
+});
+
+app.patch('/personal_notifications/:id', authenticate, (req, res) => {
+  var nid = req.params.id; //notification's id
+  var body = _.pick(req.body, ['haveRead']);
+
+  if (!ObjectID.isValid(nid)) {
+    return res.status(404).send();
+  }
+
+  if (_.isBoolean(body.haveRead) && body.haveRead) {
+    body.haveRead = true;
+    body.readAt = new Date().getTime();
+  } else {
+    body.haveRead = false;
+    body.readAt = null;
+  }
+
+  PersonalNotifications.findOneAndUpdate(
+    {_id: nid, owner: req.user._id}, {$set: body}, {new: true})
+    .then((notification) => {
+      if (!notification) {
+        return res.status(404).send();
+    }
+
+    res.send({notification});
+  }).catch((e) => {
+    res.status(400).send();
+  })
+});
+
+function addPersonalNotifications(notification){
+  let owner = notification.owner; //req.user._id;
+  let notifType = notification.notifType;//req.body.notifType;
+  //TODO: 'data' field should define its format for different logType (client)
+  let data = notification.data; //req.body.data;
+  const personalNotifications = new PersonalNotifications({
+    owner,
+    notifType,
+    data
+  });
+  personalNotifications.save().then((doc) => {
+    //res.send(doc);
+  }, (e) => {
+    //res.status(400).send(e);
+  });
+}
+
+app.post('/personal_notifications', authenticate, (req, res) => {
+  let owner = req.user._id;
+  let notifType = req.body.notifType;
+  //TODO: 'data' field should define its format for different logType (client)
+  let data = req.body.data;
+  const personalNotifications = new PersonalNotifications({
+    owner,
+    notifType,
+    data
+  });
+  personalNotifications.save().then((doc) => {
+    res.send(doc);
+  }, (e) => {
+    res.status(400).send(e);
+  });
+});
+
 //app.set('view engine', 'jade');
 
 app.listen(port, () => {
