@@ -15,7 +15,7 @@ var Post = mongoose.model('Post', {
   },
   createdDate: {
     type: Date,
-    default: Date.now()
+    default: Date.now
  },
   likesCount: {
     type: Number,

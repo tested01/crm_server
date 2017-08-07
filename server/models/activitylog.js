@@ -25,7 +25,7 @@ var ActivityLog = mongoose.model('ActivityLog', {
     require: true },
   happenAt: {
     type: Date,
-    default: Date.now(),
+    default: Date.now,
     required: true
 }
 });

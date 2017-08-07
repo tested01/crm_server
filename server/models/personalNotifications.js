@@ -23,7 +23,7 @@ var PersonalNotifications = mongoose.model('PersonalNotifications', {
     require: true },
   happenAt: {
     type: Date,
-    default: Date.now(),
+    default: Date.now,
     required: true
   },
   readAt: {

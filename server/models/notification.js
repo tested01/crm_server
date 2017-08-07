@@ -19,7 +19,7 @@ const Notification = mongoose.model('Notification', {
   },
   createdDate: {
     type: Date,
-    default: Date.now()
+    default: Date.now
  },
   viewsCount: {
     type: Number,
